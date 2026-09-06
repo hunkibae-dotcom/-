@@ -1973,6 +1973,10 @@
             return;
         }
         const palNorm = pallet ? (/^\d+$/.test(pallet) ? '적재 ' + pallet : pallet) : '';
+        // 필터링/렌더링 중 하나라도 예기치 못한 값(undefined 등)으로 예외가 나면 함수가 그 자리에서
+        // 멈춰서, 그 뒤로는 뭘 검색해도 화면(srList)이 이전 상태 그대로 안 바뀌는 "먹통" 증상으로
+        // 보였다 — try/catch로 방어해서 최소한 빈 결과로라도 안전하게 갱신되게 한다.
+        try {
         const filtered = allData.filter(d => {
             if (_schRoundFilterSet && !_schRoundFilterSet.has(d.round)) return false;
             if (_kpiPendingFilterActive) {
@@ -2023,7 +2027,8 @@
             return;
         }
         document.getElementById('srList').innerHTML = deduped.slice(0,50).map(d => {
-            const sc  = d.isDone ? '#00E676' : (d.status.includes('포장대기') ? '#FF9100' : (d.status.includes('포장완료') ? '#3B82F6' : (d.status.includes('입고') ? '#38BDF8' : '#64748B')));
+            const _dst = d.status || '';
+            const sc  = d.isDone ? '#00E676' : (_dst.includes('포장대기') ? '#FF9100' : (_dst.includes('포장완료') ? '#3B82F6' : (_dst.includes('입고') ? '#38BDF8' : '#64748B')));
             const _sc = (d.code||'').replace(/'/g,"&#39;");
             const _sr = (d.round||'').replace(/'/g,"&#39;");
             const _pv = d.pallet || '';
@@ -2043,6 +2048,13 @@
                 </div>
             </div>`;
         }).join('');
+        } catch (e) {
+            console.error('runSearch error:', e);
+            document.getElementById('srCount').textContent = '0';
+            const qtyElErr = document.getElementById('srQtySum');
+            if (qtyElErr) qtyElErr.textContent = '0';
+            document.getElementById('srList').innerHTML = '<div style="font-size:12px;color:var(--text-sub);text-align:center;padding:20px 0;">검색 중 오류가 발생했습니다. 필터를 초기화해보세요.</div>';
+        }
     }
     function clearSearch() {
         ['sf_round','sf_code','sf_color','sf_country','sf_pallet','sf_dateFrom','sf_dateTo'].forEach(id => { const el = document.getElementById(id); if(el) el.value = ''; });
@@ -2900,6 +2912,15 @@
     function closeView() {
         if (_currentView === 'viewScan') _stopScan();
         if (!_currentView) return;
+        // 검색 화면을 (초기화 버튼이 아니라) 뒤로가기로 그냥 나가면 포장대기/일정 카드에서
+        // 걸어둔 임시 필터가 안 풀린 채로 남아있어서, 다음에 다른 경로로 다시 들어왔을 때
+        // 검색이 안 먹히는 것처럼 보이는 원인이 됐다 — 나갈 때 항상 정리한다.
+        if (_currentView === 'viewSearch') {
+            _schRoundFilterSet = null;
+            _kpiPendingFilterActive = false;
+            _sfSourceFilter = '';
+            _sfStatusFilters.clear();
+        }
         const el = document.getElementById(_currentView);
         if (el) el.style.transform = 'translateX(100%)';
         _currentView = null;
@@ -3477,6 +3498,7 @@
     let _ieCode = '', _ieRound = '';
     let _ieOrigStatus = '', _ieCurStatus = '';
     let _ieOrigPallet = '';
+    let _ieOrigRegDate = '';
     let _ieOrigW = '', _ieOrigD = '', _ieOrigH = '', _ieOrigG = '';
 
     function openItemEdit(code, round) {
@@ -3499,17 +3521,21 @@
             if (ieQty) ieQty.textContent = (item.qty||0).toLocaleString() + ' BOX';
             if (ieDate) ieDate.textContent = fmtKr(item.date);
             if (ieDue) ieDue.textContent = fmtKr(item.dueDate);
-            const ieReg = document.getElementById('ieReg');
-            if (ieReg) ieReg.textContent = item.regDate && item.regDate!=='-' ? fmtKr(item.regDate) : '—';
+            _ieOrigRegDate = item.regDate && item.regDate !== '-' ? _nd(item.regDate) : '';
+            const ieRegDateInp = document.getElementById('ieRegDate');
+            if (ieRegDateInp) ieRegDateInp.value = _ieOrigRegDate;
             _ieOrigStatus = item.status || '';
             _ieOrigW = (item.specW||'').toString().replace(/[^0-9.]/g,'');
             _ieOrigD = (item.specD||'').toString().replace(/[^0-9.]/g,'');
             _ieOrigH = (item.specH||'').toString().replace(/[^0-9.]/g,'');
             _ieOrigG = (item.specG||'').toString().replace(/[^0-9.]/g,'');
         } else {
-            ['ieColor','ieCountry','ieQty','ieDate','ieDue','ieReg'].forEach(id => {
+            ['ieColor','ieCountry','ieQty','ieDate','ieDue'].forEach(id => {
                 const el = document.getElementById(id); if (el) el.textContent = '—';
             });
+            _ieOrigRegDate = '';
+            const ieRegDateInp = document.getElementById('ieRegDate');
+            if (ieRegDateInp) ieRegDateInp.value = '';
             _ieOrigStatus = ''; _ieOrigW = ''; _ieOrigD = ''; _ieOrigH = ''; _ieOrigG = '';
         }
         _ieCurStatus = _ieOrigStatus;
@@ -3585,6 +3611,9 @@
         if (fb) { fb.textContent = '저장 중...'; fb.style.color = 'var(--text-sub)'; }
         if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> 저장 중...'; }
         const newPallet = (document.getElementById('iePallet')?.value || '').trim();
+        // 포장완료로 저장하는데 포장완료일을 따로 안 골랐으면 오늘 날짜로 자동 입력
+        let newRegDate = (document.getElementById('ieRegDate')?.value || '').trim();
+        if (_ieCurStatus === '포장완료' && !newRegDate) newRegDate = todayStr();
         const newW = (document.getElementById('ieW')?.value || '').trim();
         const newD = (document.getElementById('ieD')?.value || '').trim();
         const newH = (document.getElementById('ieH')?.value || '').trim();
@@ -3611,6 +3640,13 @@
                     { signal: AbortSignal.timeout(15000) }).then(r => r.text())
             );
             changed.pallet = sendPallet;
+        }
+        if (newRegDate !== _ieOrigRegDate) {
+            tasks.push(
+                fetch(GAS_URL + '?' + new URLSearchParams({ action:'updateRegDate', code:_ieCode, round:_ieRound, regDate:newRegDate }),
+                    { signal: AbortSignal.timeout(15000) }).then(r => r.text())
+            );
+            changed.regDate = newRegDate;
         }
         const specChanged = newW !== _ieOrigW || newD !== _ieOrigD || newH !== _ieOrigH || newG !== _ieOrigG;
         if (specChanged) {
@@ -3643,6 +3679,12 @@
                         if (newH) it.specH = newH;
                         if (newG) it.specG = newG;
                     }
+                });
+            }
+            if (changed.regDate !== undefined) {
+                allData.forEach(it => {
+                    if ((it.code||'').toUpperCase() === _ieCode.toUpperCase() && (it.round||'') === _ieRound)
+                        it.regDate = changed.regDate;
                 });
             }
             if (changed.pallet !== undefined && rawStockRows && rawStockRows.length > 1) {
@@ -3823,7 +3865,6 @@
       <div style="display:flex;gap:12px;margin-bottom:16px;font-size:11px;font-family:monospace;flex-wrap:wrap;">
         <span style="color:var(--label);">상차 <span id="ieDate" style="color:var(--text-sub);font-weight:700;"></span></span>
         <span style="color:var(--label);">납기 <span id="ieDue" style="color:var(--text-sub);font-weight:700;"></span></span>
-        <span style="color:var(--label);">포장완료 <span id="ieReg" style="color:#00B0FF;font-weight:700;"></span></span>
       </div>
       <div style="margin-bottom:18px;">
         <div style="font-size:11px;font-weight:700;color:var(--label);margin-bottom:8px;letter-spacing:.04em;">진행상태</div>
@@ -3834,6 +3875,13 @@
             style="width:100%;background:var(--input-bg);border:1px solid var(--border);border-radius:12px;padding:11px 14px;font-size:13px;color:var(--text);outline:none;box-sizing:border-box;"
             onfocus="this.style.borderColor='#F59E0B'" onblur="this.style.borderColor='var(--border)'">
         </div>
+      </div>
+      <div style="margin-bottom:18px;">
+        <div style="font-size:11px;font-weight:700;color:var(--label);margin-bottom:8px;letter-spacing:.04em;">포장완료일</div>
+        <input id="ieRegDate" type="date"
+          style="width:100%;background:var(--input-bg);border:1px solid var(--border);border-radius:12px;padding:11px 14px;font-size:13px;color:var(--text);outline:none;box-sizing:border-box;"
+          onfocus="this.style.borderColor='#00B0FF'" onblur="this.style.borderColor='var(--border)'">
+        <div style="font-size:10.5px;color:var(--label);margin-top:6px;">비워두고 포장완료로 저장하면 오늘 날짜로 자동 입력됩니다.</div>
       </div>
       <div style="margin-bottom:18px;">
         <div style="font-size:11px;font-weight:700;color:var(--label);margin-bottom:8px;letter-spacing:.04em;">적재번호</div>
