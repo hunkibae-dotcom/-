@@ -2031,8 +2031,9 @@
             const sc  = d.isDone ? '#00E676' : (_dst.includes('포장대기') ? '#FF9100' : (_dst.includes('포장완료') ? '#3B82F6' : (_dst.includes('입고') ? '#38BDF8' : '#64748B')));
             const _sc = (d.code||'').replace(/'/g,"&#39;");
             const _sr = (d.round||'').replace(/'/g,"&#39;");
+            const _scl = (d.color||'').replace(/'/g,"&#39;");
             const _pv = d.pallet || '';
-            return `<div onclick="openItemEdit('${_sc}','${_sr}')" style="background:var(--input-bg);border:1px solid var(--border);border-radius:12px;padding:12px 14px;display:flex;flex-direction:column;gap:6px;cursor:pointer;-webkit-tap-highlight-color:transparent;">
+            return `<div onclick="openItemEdit('${_sc}','${_sr}','${_scl}')" style="background:var(--input-bg);border:1px solid var(--border);border-radius:12px;padding:12px 14px;display:flex;flex-direction:column;gap:6px;cursor:pointer;-webkit-tap-highlight-color:transparent;">
                 <div style="display:flex;align-items:center;justify-content:space-between;">
                     <span style="font-size:13px;font-weight:800;font-family:monospace;color:var(--text);">${d.code||'-'}${d.color?' <span style="font-weight:500;color:#FF9100;">'+d.color+'</span>':''}</span>
                     <span style="font-size:11px;font-weight:700;color:${sc};background:${sc}22;padding:2px 8px;border-radius:20px;">${d.status}</span>
@@ -2138,14 +2139,16 @@
 
             // 이력
             const history = [...items].sort((a,b)=>b.regDate>a.regDate?1:-1).slice(0,10).map(d => {
-                const sc = d.isDone ? '#00E676' : (d.status.includes('포장대기')?'#FF9100':'#64748B');
-                const _isS = d.isDone && (d.status.includes('출고')||d.status.includes('피킹'));
+                const _hst = d.status || '';
+                const sc = d.isDone ? '#00E676' : (_hst.includes('포장대기')?'#FF9100':'#64748B');
+                const _isS = d.isDone && (_hst.includes('출고')||_hst.includes('피킹'));
                 const _rawHp = d.pallet || null;
-                const _hp  = _isS ? (d.status.includes('피킹')?'피킹':'출고') : _rawHp;
-                const _hpc = _isS ? (d.status.includes('피킹')?'#A78BFA':'#00E676') : '#00B0FF';
+                const _hp  = _isS ? (_hst.includes('피킹')?'피킹':'출고') : _rawHp;
+                const _hpc = _isS ? (_hst.includes('피킹')?'#A78BFA':'#00E676') : '#00B0FF';
                 const _hsc = (d.code||'').replace(/'/g,"&#39;");
                 const _hsr = (d.round||'').replace(/'/g,"&#39;");
-                return `<div onclick="openItemEdit('${_hsc}','${_hsr}')" style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--log-border);cursor:pointer;-webkit-tap-highlight-color:transparent;">
+                const _hscl = (d.color||'').replace(/'/g,"&#39;");
+                return `<div onclick="openItemEdit('${_hsc}','${_hsr}','${_hscl}')" style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--log-border);cursor:pointer;-webkit-tap-highlight-color:transparent;">
                     <div style="min-width:0;flex:1;">
                         <div style="font-size:11px;font-weight:700;color:var(--text);font-family:monospace;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${d.round}</div>
                         <div style="font-size:10px;color:var(--text-sub);margin-top:2px;">포장완료 ${d.regDate||'—'}</div>
@@ -3463,10 +3466,11 @@
             const ddayTxt   = (diff !== null && !d.isDone) ? (diff <= 0 ? ' <span style="color:#FF4444;font-weight:800;">D-Day</span>' : ' <span style="color:#FF9100;font-weight:700;">D-'+diff+'</span>') : '';
             const _sc = (d.code||'').replace(/'/g,'&#39;');
             const _sr = (d.round||'').replace(/'/g,'&#39;');
+            const _scl = (d.color||'').replace(/'/g,'&#39;');
             const isShipped = d.isDone && (s.includes('출고') || s.includes('피킹'));
             const _pv = isShipped ? (s.includes('피킹') ? '피킹' : '출고') : (d.pallet || '—');
             const _pc = isShipped ? (s.includes('피킹') ? '#A78BFA' : '#00E676') : '#00B0FF';
-            return `<div onclick="openItemEdit('${_sc}','${_sr}')" style="padding:12px 0;${isLast ? '' : 'border-bottom:1px solid var(--divider);'}cursor:pointer;-webkit-tap-highlight-color:transparent;">
+            return `<div onclick="openItemEdit('${_sc}','${_sr}','${_scl}')" style="padding:12px 0;${isLast ? '' : 'border-bottom:1px solid var(--divider);'}cursor:pointer;-webkit-tap-highlight-color:transparent;">
                 <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
                     <span style="font-size:12px;font-weight:800;font-family:monospace;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:160px;">${d.code || '—'}</span>
                     <span style="font-size:10px;font-weight:700;color:${color};background:${color}22;padding:2px 8px;border-radius:16px;flex-shrink:0;">${d.status}</span>
@@ -3495,16 +3499,20 @@
         { v:'포장완료', c:'#3B82F6' },
         { v:'철물',    c:'#EF4444' },
     ];
-    let _ieCode = '', _ieRound = '';
+    let _ieCode = '', _ieRound = '', _ieColor = '';
     let _ieOrigStatus = '', _ieCurStatus = '';
     let _ieOrigPallet = '';
     let _ieOrigRegDate = '';
     let _ieOrigW = '', _ieOrigD = '', _ieOrigH = '', _ieOrigG = '';
 
-    function openItemEdit(code, round) {
-        _ieCode = code; _ieRound = round;
+    // color까지 넘어오면 그걸로 정확히 지목하고, 안 넘어오면(이전 호출부 호환) 예전처럼 code+round 첫 매치.
+    // 같은 code+round인데 색상만 다른 행이 여러 개 있으면 색상 없이는 항상 같은(첫) 행만 열려서
+    // "다른 색상 카드를 눌러도 전부 같은 항목이 열린다"는 문제가 있었다.
+    function openItemEdit(code, round, color) {
+        _ieCode = code; _ieRound = round; _ieColor = color || '';
         const item = allData.find(d =>
-            (d.code||'').toUpperCase() === (code||'').toUpperCase() && (d.round||'') === round
+            (d.code||'').toUpperCase() === (code||'').toUpperCase() && (d.round||'') === round &&
+            (color === undefined || (d.color||'') === color)
         );
         const ieCode = document.getElementById('ieCode');
         const ieRound = document.getElementById('ieRound');
@@ -3621,7 +3629,7 @@
         const tasks = [];
         const changed = {};
         if (_ieCurStatus && _ieCurStatus !== _ieOrigStatus) {
-            const statusParams = { action:'updateStatus', code:_ieCode, round:_ieRound, status:_ieCurStatus };
+            const statusParams = { action:'updateStatus', code:_ieCode, round:_ieRound, color:_ieColor, status:_ieCurStatus };
             if (_ieCurStatus === '일부입고') {
                 const q = (document.getElementById('iePartialQty')?.value || '').trim();
                 statusParams.note = q + ' EA만 입고됨';
@@ -3636,14 +3644,14 @@
             // 숫자만 입력했으면 시트 형식("적재 99")에 맞춰 접두사를 붙여서 보냄 — 문자 섞인 라벨(예: A-1)은 그대로 전송
             const sendPallet = /^\d+$/.test(newPallet) ? '적재 ' + newPallet : newPallet;
             tasks.push(
-                fetch(GAS_URL + '?' + new URLSearchParams({ action:'updatePallet', code:_ieCode, round:_ieRound, pallet:sendPallet }),
+                fetch(GAS_URL + '?' + new URLSearchParams({ action:'updatePallet', code:_ieCode, round:_ieRound, color:_ieColor, pallet:sendPallet }),
                     { signal: AbortSignal.timeout(15000) }).then(r => r.text())
             );
             changed.pallet = sendPallet;
         }
         if (newRegDate !== _ieOrigRegDate) {
             tasks.push(
-                fetch(GAS_URL + '?' + new URLSearchParams({ action:'updateRegDate', code:_ieCode, round:_ieRound, regDate:newRegDate }),
+                fetch(GAS_URL + '?' + new URLSearchParams({ action:'updateRegDate', code:_ieCode, round:_ieRound, color:_ieColor, regDate:newRegDate }),
                     { signal: AbortSignal.timeout(15000) }).then(r => r.text())
             );
             changed.regDate = newRegDate;
@@ -3651,7 +3659,7 @@
         const specChanged = newW !== _ieOrigW || newD !== _ieOrigD || newH !== _ieOrigH || newG !== _ieOrigG;
         if (specChanged) {
             tasks.push(
-                fetch(GAS_URL + '?' + new URLSearchParams({ action:'updateSpec', code:_ieCode, round:_ieRound, w:newW, d:newD, h:newH, g:newG }),
+                fetch(GAS_URL + '?' + new URLSearchParams({ action:'updateSpec', code:_ieCode, round:_ieRound, color:_ieColor, w:newW, d:newD, h:newH, g:newG }),
                     { signal: AbortSignal.timeout(15000) }).then(r => r.text())
             );
             changed.spec = true;
@@ -3663,17 +3671,17 @@
         }
         try {
             await Promise.all(tasks);
+            // code+round만으로는 같은 건명에 색상만 다른 행이 여러 개일 때 항상 첫 번째 행만
+            // 골라져서 엉뚱한 항목이 갱신된 것처럼 보였다 — color까지 같이 맞춰서 정확한 행만 찾는다.
+            const _ieMatch = it => (it.code||'').toUpperCase() === _ieCode.toUpperCase() && (it.round||'') === _ieRound && (it.color||'') === _ieColor;
             if (changed.status) {
                 [allData, stockData].forEach(arr => { if (!arr) return;
-                    arr.forEach(it => {
-                        if ((it.code||'').toUpperCase() === _ieCode.toUpperCase() && (it.round||'') === _ieRound)
-                            it.status = changed.status;
-                    });
+                    arr.forEach(it => { if (_ieMatch(it)) it.status = changed.status; });
                 });
             }
             if (changed.spec) {
                 allData.forEach(it => {
-                    if ((it.code||'').toUpperCase() === _ieCode.toUpperCase() && (it.round||'') === _ieRound) {
+                    if (_ieMatch(it)) {
                         if (newW) it.specW = newW;
                         if (newD) it.specD = newD;
                         if (newH) it.specH = newH;
@@ -3682,19 +3690,19 @@
                 });
             }
             if (changed.regDate !== undefined) {
-                allData.forEach(it => {
-                    if ((it.code||'').toUpperCase() === _ieCode.toUpperCase() && (it.round||'') === _ieRound)
-                        it.regDate = changed.regDate;
-                });
+                allData.forEach(it => { if (_ieMatch(it)) it.regDate = changed.regDate; });
             }
             if (changed.pallet !== undefined && rawStockRows && rawStockRows.length > 1) {
                 const hdr = rawStockRows[0].map(h => (h||'').toString().trim());
                 const iC = hdr.findIndex(h => h.replace(/\s/g,'').includes('품목코드') || h.replace(/\s/g,'').includes('제품코드'));
                 const iR = hdr.findIndex(h => h.replace(/\s/g,'').includes('수주건명') || h.replace(/\s/g,'').includes('건명'));
+                const iCol = hdr.findIndex(h => h.replace(/\s/g,'').includes('색상') || h.toLowerCase().includes('color'));
                 for (let i = 1; i < rawStockRows.length; i++) {
                     const r = rawStockRows[i]; if (!r) continue;
+                    const rColor = iCol >= 0 ? (r[iCol]||'').toString().trim() : '';
                     if ((r[iC>=0?iC:1]||'').toString().trim().toUpperCase() === _ieCode.toUpperCase() &&
-                        (r[iR>=0?iR:4]||'').toString().trim() === _ieRound) { r[10] = changed.pallet; break; }
+                        (r[iR>=0?iR:4]||'').toString().trim() === _ieRound &&
+                        (iCol < 0 || rColor === _ieColor)) { r[10] = changed.pallet; break; }
                 }
             }
             if (fb) { fb.textContent = '✓ 저장 완료'; fb.style.color = '#00E676'; }
