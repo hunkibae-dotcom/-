@@ -1148,8 +1148,9 @@
             const ddayColor = days === 0 ? '#FF4444' : (days <= 3 ? '#F59E0B' : '#00E676');
 
             // 같은 기준일(상차일 우선, 없으면 납기일) 전체 항목
+            // — "피킹"은 우리 쪽에서 회수/작업하는 게 아니라 외주에서 직접 꺼내 쓰는 것이라 집계 대상 아님
             const nearDate = _nd(field === 'date' ? nearest.date : nearest.dueDate);
-            const same = notDone.filter(d => _nd(field === 'date' ? d.date : d.dueDate) === nearDate);
+            const same = notDone.filter(d => (d.status||'').trim() !== '피킹' && _nd(field === 'date' ? d.date : d.dueDate) === nearDate);
             _schSameItems = same;
 
             // 건명 (중복 제거)
