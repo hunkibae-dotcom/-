@@ -2032,10 +2032,13 @@
                 qty: ['수량', 'qty'], dueDate: ['전산상납기', '전산 납기', '납기일', '납기', 'dueDate'], country: ['제품 구분', '제품구분', 'country'],
                 targetQty: ['대상(EA)', 'targetQty'], strengthenedQty: ['강화(EA)', '강화', 'strengthenedQty'], shippedQty: ['출고(EA)', '출고', 'shippedQty'],
                 cost: ['강화비용', 'cost'], status: ['진행', '진행상태', '상태', 'status'], code: ['품목코드', '제품코드', 'code'], color: ['색상', '컬러', 'color'],
-                specW: ['가로', 'W', '폭', 'WIDTH', 'width', 'specW'],
-                specD: ['세로', 'D', '깊이', 'DEPTH', 'depth', 'specD'],
-                specH: ['높이', 'H', 'HEIGHT', 'height', 'specH'],
-                specG: ['무게', '중량', 'G', 'KG', '중량(KG)', '무게(KG)', 'weight', 'specG']
+                // 알파벳 한 글자짜리 별칭(W/D/H/G)은 부분일치라 "TOTAL CODE"처럼 전혀 다른 헤더에
+                // 우연히 그 글자가 들어있으면(CODE→'D') 엉뚱한 컬럼을 세로 등으로 잘못 잡는다.
+                // 실제로 "수출 표준품 현황" 시트에 이것 때문에 세로 평균이 이상하게 나오던 버그가 있었음.
+                specW: ['가로', '폭', 'WIDTH', 'width', 'specW'],
+                specD: ['세로', '깊이', 'DEPTH', 'depth', 'specD'],
+                specH: ['높이', 'HEIGHT', 'height', 'specH'],
+                specG: ['무게', '중량', 'KG', '중량(KG)', '무게(KG)', 'weight', 'specG']
             };
 
             let indices = {};
